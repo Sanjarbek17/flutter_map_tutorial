@@ -1,16 +1,28 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_geojson/flutter_map_geojson.dart';
+import 'package:geojson/geojson.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'geo_json.dart';
+
 void main() {
-  runApp(const MyApp());
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    var geo = GeoJsonParser(
+        defaultPolygonBorderColor: Colors.white,
+        defaultPolygonFillColor: Colors.blue);
+    var myFile = File('assets/my_data.geojson').readAsStringSync();
+    geo.parseGeoJson(jsonDecode(myFile));
     return MaterialApp(
       home: Scaffold(
         drawer: Drawer(
@@ -26,15 +38,12 @@ class MyApp extends StatelessWidget {
           child: FlutterMap(
             options: MapOptions(
               center: LatLng(39.6531163453585, 66.96392089492956),
-              zoom: 9.2,
+              zoom: 15.2,
+              onTap: (tapPosition, point) {
+                getData();
+              },
             ),
             nonRotatedChildren: [
-              AttributionWidget.defaultWidget(
-                source: 'OpenStreetMap contributors',
-                onSourceTapped: null,
-              ),
-            ],
-            children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.app',
@@ -45,7 +54,7 @@ class MyApp extends StatelessWidget {
                     point: LatLng(39.6531163453585, 66.96392089492956),
                     width: 80,
                     height: 80,
-                    builder: (context) => Icon(
+                    builder: (context) => const Icon(
                       Icons.place,
                       size: 50,
                     ),
@@ -54,17 +63,7 @@ class MyApp extends StatelessWidget {
               ),
               PolygonLayer(
                 polygonCulling: false,
-                polygons: [
-                  Polygon(
-                    borderStrokeWidth: 5,
-                    points: [
-                      LatLng(40.6531163453585, 66.96392089492956),
-                      LatLng(39.6531163453585, 67.96392089492956),
-                      LatLng(39.6531163453585, 66.96392089492956),
-                    ],
-                    color: Colors.blue,
-                  ),
-                ],
+                polygons: geo.polygons,
               ),
             ],
           ),
