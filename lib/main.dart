@@ -1,72 +1,104 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_geojson/flutter_map_geojson.dart';
-import 'package:geojson/geojson.dart';
 import 'package:latlong2/latlong.dart';
-
-import 'geo_json.dart';
+import 'package:location/location.dart';
 
 void main() {
   runApp(MyApp());
 }
 
-class MyApp extends StatelessWidget {
-  MyApp({super.key});
+class MyApp extends StatefulWidget {
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final MapController _mapController = MapController();
+  LocationData? _locationData;
+
+  @override
+  void initState() {
+    super.initState();
+    _getLocation();
+  }
+
+  Future<void> _getLocation() async {
+    Location location = Location();
+    bool _serviceEnabled;
+    PermissionStatus _permissionGranted;
+
+    _serviceEnabled = await location.serviceEnabled();
+    if (!_serviceEnabled) {
+      _serviceEnabled = await location.requestService();
+      if (!_serviceEnabled) {
+        return;
+      }
+    }
+
+    _permissionGranted = await location.hasPermission();
+    if (_permissionGranted == PermissionStatus.denied) {
+      _permissionGranted = await location.requestPermission();
+      if (_permissionGranted != PermissionStatus.granted) {
+        return;
+      }
+    }
+
+    location.onLocationChanged.listen((LocationData currentLocation) {
+      setState(() {
+        _locationData = currentLocation;
+      });
+    });
+    _locationData = await location.getLocation();
+    print(_locationData);
+  }
 
   @override
   Widget build(BuildContext context) {
-    var geo = GeoJsonParser(
-        defaultPolygonBorderColor: Colors.white,
-        defaultPolygonFillColor: Colors.blue);
-    var myFile = File('assets/my_data.geojson').readAsStringSync();
-    geo.parseGeoJson(jsonDecode(myFile));
     return MaterialApp(
+      title: 'Flutter Map Example',
       home: Scaffold(
-        drawer: Drawer(
-          child: ListView(children: [
-            DrawerHeader(child: Text('Header')),
-            Text('child'),
-          ]),
-        ),
         appBar: AppBar(
-          title: Text('openstreetmap'),
+          title: const Text('Flutter Map Example'),
         ),
-        body: SafeArea(
-          child: FlutterMap(
-            options: MapOptions(
-              center: LatLng(39.6531163453585, 66.96392089492956),
-              zoom: 15.2,
-              onTap: (tapPosition, point) {
-                getData();
-              },
-            ),
-            nonRotatedChildren: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.app',
-              ),
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: LatLng(39.6531163453585, 66.96392089492956),
-                    width: 80,
-                    height: 80,
-                    builder: (context) => const Icon(
-                      Icons.place,
-                      size: 50,
-                    ),
-                  ),
-                ],
-              ),
-              PolygonLayer(
-                polygonCulling: false,
-                polygons: geo.polygons,
-              ),
-            ],
+        body: FlutterMap(
+          options: MapOptions(
+            center: _locationData != null
+                ? LatLng(_locationData!.latitude!, _locationData!.longitude!)
+                : LatLng(39.6548, 66.9597),
+            zoom: 10.0,
+            // plugins: [LocationPlugin()],
           ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.example.app',
+            ),
+            MarkerLayer(
+              markers: _locationData != null
+                  ? [
+                      Marker(
+                        width: 80.0,
+                        height: 80.0,
+                        point: LatLng(_locationData!.latitude!,
+                            _locationData!.longitude!),
+                        builder: (ctx) => const Icon(
+                          Icons.location_pin,
+                          color: Colors.blue,
+                          size: 50,
+                        ),
+                      ),
+                    ]
+                  : [],
+            ),
+            // Locations(
+            //   onLocationChanged: (LocationData ld) {
+            //     _mapController.move(
+            //       LatLng(ld.latitude!, ld.longitude!),
+            //       _mapController.zoom,
+            //     );
+            //   },
+            // ),
+          ],
         ),
       ),
     );
